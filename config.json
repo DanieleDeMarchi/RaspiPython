@@ -1,0 +1,30 @@
+{
+    "thingName": "IoT_Device_1",
+    "thingTypeName": "pcTelemetryDevice",
+    "version": 1,
+    "rootCaKeyLocation": null,
+    "privateKeyLocation": null,
+    "certLocation": null,
+    "attributes":{
+        "os": "Windows"
+    },
+    "defaultOperations":{
+        "telemetry": "Enabled",
+        "alerting" : "Enabled",
+        "processErrorControl" : "Enabled",
+        "windowsEventControl" : "Disabled"
+    },
+    "parameters":{
+        "telemetry_measurments":{
+            "cpu_load": "Enabled",
+            "memory_load": "Enabled",
+            "disk_space": "Enabled",
+            "disk_io_count": "Enabled",
+            "net_io": "Enabled",
+            "cpu_temp": "Disabled",
+            "battery": "Disabled"
+        },
+        "telemetry_fast_update": 1,
+        "telemetry_slow_update": 10
+    }
+}
