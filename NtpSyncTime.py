@@ -4,8 +4,7 @@ import time
 
 
 class NtpSyncTime:
-
-    def __init__(self, ntpServer='pool.ntp.org'):
+    def __init__(self, ntpServer="pool.ntp.org"):
         self.ntpServer = ntpServer
         self.ntpClient = ntplib.NTPClient()
         self.offset = 0
@@ -22,8 +21,7 @@ class NtpSyncTime:
     @staticmethod
     def getPcTime():
         diff = datetime.utcnow() - datetime(1970, 1, 1, 0, 0, 0)
-        timestampPc = diff.days*24*60*60 + \
-            diff.seconds+diff.microseconds*(10**(-6))
+        timestampPc = diff.days * 24 * 60 * 60 + diff.seconds + diff.microseconds * (10 ** (-6))
         return timestampPc
 
     def getInfluxTimestamp(self, risoluzione="s"):
@@ -31,9 +29,9 @@ class NtpSyncTime:
         if risoluzione == "s":
             return int(timestampSincronizzato)
         elif risoluzione == "ms":
-            return int(timestampSincronizzato*1000)
+            return int(timestampSincronizzato * 1000)
         elif risoluzione == "us":
-            return int(timestampSincronizzato*10**(6))
+            return int(timestampSincronizzato * 10 ** (6))
         return None
 
     def getUnixTimestamp(self):

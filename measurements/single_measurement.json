@@ -1,56 +1,9 @@
 {
-    "device_id": null,
-    "iso_timestamp": null,
-    "unix-timestamp": null,
-    "measurement_type": ["cpu_load","memory_load","disk_space", "disk_io_count", "net_io"],
+    "device_id": "pc_telemetry_device_1",
+    "measurement_type": ["net_io"],
     "measurement": {
         "iso_timestamp": null,
-        "unix-timestamp": null,
-        "cpu_load": {
-            "core_count": 4,
-            "core_0": null,
-            "core_1": null,
-            "core_2": null,
-            "core_3": null,
-            "CPU": null,
-            "Frequency": null
-        },
-        "memory_load": {
-            "total": null,
-            "available": null,
-            "swap_total": null,
-            "swap_available": null
-        },
-        "disk_space": [
-            {
-                "diskName": "C:\\",
-                "total": null,
-                "free": null,
-                "type": "NTFS"
-            },
-            {
-                "diskName": "D:\\",
-                "total": null,
-                "free": null,
-                "type": "NTFS"
-            }
-        ],
-        "disk_io_count": [
-            {
-                "diskName": "C:\\",
-                "read_count": null,
-                "write_count": null,
-                "read_bytes": null,
-                "write_bytes": null
-            },
-            {
-                "diskName": "D:\\",
-                "read_count": null,
-                "write_count": null,
-                "read_bytes": null,
-                "write_bytes": null
-            }
-        ],
+        "unix_timestamp": null,
         "net_io": [
             {
                 "interface_name": "Ethernet",
@@ -59,8 +12,22 @@
             },
             {
                 "interface_name": "Wi-Fi",
-                "byte_sent_per_sec": null,
-                "byte_recv_per_sec": null
+                "kbps_sent": null,
+                "kbps_recv": null
+            }
+        ],
+        "disk_space": [
+            {
+                "partitionName": "C:\\",
+                "total": null,
+                "free": null,
+                "type": "NTFS"
+            },
+            {
+                "partitionName": "D:\\",
+                "total": null,
+                "free": null,
+                "type": "NTFS"
             }
         ]
     }

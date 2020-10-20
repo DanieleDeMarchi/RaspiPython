@@ -1,27 +1,20 @@
 {
-    "thingName": "IoT_Device_1",
+    "thingName": "pc_telemetry_device_1",
     "thingTypeName": "pcTelemetryDevice",
-    "version": 1,
-    "rootCaKeyLocation": null,
-    "privateKeyLocation": null,
-    "certLocation": null,
-    "attributes":{
-        "os": "Windows"
-    },
-    "defaultOperations":{
+    "endpoint": "a1j11zks9gt4c2-ats.iot.us-west-2.amazonaws.com",
+    "rootCAPath": ".keys/root-CA.crt",
+    "privateKeyPath": ".keys/pc_telemetry_device_1-private.pem.key",
+    "certificatePath": ".keys/pc_telemetry_device_1-certificate.pem.crt",
+    "operations": {
         "telemetry": "Enabled",
-        "alerting" : "Enabled",
-        "processErrorControl" : "Enabled",
-        "windowsEventControl" : "Disabled"
+        "processErrorControl": "Enabled"
     },
-    "parameters":{
-        "telemetry_measurments":{
+    "parameters": {
+        "telemetry_measurements": {
             "cpu_load": "Enabled",
             "memory_load": "Enabled",
-            "disk_space": "Enabled",
-            "disk_io_count": "Enabled",
+            "disk_space": "Disabled",
             "net_io": "Enabled",
-            "cpu_temp": "Disabled",
             "battery": "Disabled"
         },
         "telemetry_fast_update": 1,

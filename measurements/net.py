@@ -1,86 +1,83 @@
-#!/usr/bin/env python3
-#
-# $Id: iotop.py 1160 2011-10-14 18:50:36Z g.rodola@gmail.com $
-#
-# Copyright (c) 2009, Giampaolo Rodola'. All rights reserved.
-# Use of this source code is governed by a BSD-style license that can be
-# found in the LICENSE file.
-
-"""
-Shows real-time network statistics.
-Author: Giampaolo Rodola' <g.rodola@gmail.com>
-$ python3 scripts/nettop.py
------------------------------------------------------------
-total bytes:           sent: 1.49 G       received: 4.82 G
-total packets:         sent: 7338724      received: 8082712
-wlan0                     TOTAL         PER-SEC
------------------------------------------------------------
-bytes-sent               1.29 G        0.00 B/s
-bytes-recv               3.48 G        0.00 B/s
-pkts-sent               7221782               0
-pkts-recv               6753724               0
-eth1                      TOTAL         PER-SEC
------------------------------------------------------------
-bytes-sent             131.77 M        0.00 B/s
-bytes-recv               1.28 G        0.00 B/s
-pkts-sent                     0               0
-pkts-recv               1214470               0
-"""
-
 import time
 import sys
+import os
 import psutil
-from psutil._common import bytes2human
+import copy
+from datetime import datetime, timezone, timedelta
+
+net_data = {"interface_name": None, "kbps_sent": None, "kbps_recv": None}
 
 
-def poll(interval):
-    """Retrieve raw stats within an interval window."""
-    tot_before = psutil.net_io_counters()
-    pnic_before = psutil.net_io_counters(pernic=True)
-    # sleep some time
-    time.sleep(interval)
-    tot_after = psutil.net_io_counters()
-    pnic_after = psutil.net_io_counters(pernic=True)
-    return (tot_before, tot_after, pnic_before, pnic_after)
+def getPcTime():
+    diff = datetime.utcnow() - datetime(1970, 1, 1, 0, 0, 0)
+    timestampPc = diff.days * 24 * 60 * 60 + diff.seconds + diff.microseconds * (10 ** (-6))
+    return timestampPc
 
+class NetMeasurement:
+    def __init__(self):
+        self.pnic_before = psutil.net_io_counters(pernic=True)
+        self.old_timestamp = getPcTime()
 
-def refresh_window(tot_before, tot_after, pnic_before, pnic_after):
-    """Print stats on screen."""
-    global lineno
+    def newMeasurement(self):
+        new_pnic = psutil.net_io_counters(pernic=True)
+        timestamp = getPcTime()
+        time_diff = timestamp - self.old_timestamp
+        self.old_timestamp = timestamp
 
-    # totals
-    print("total bytes:     sent: %-6s   received: %s" % (
-        bytes2human(tot_after.bytes_sent),
-        bytes2human(tot_after.bytes_recv))
-    )
-    print("total packets:   sent: %-6s   received: %s" % (
-        tot_after.packets_sent, tot_after.packets_recv))
+        nic_names = list(new_pnic.keys())
+        diff_nic = []
+        for name in nic_names:
+            if new_pnic[name].bytes_sent > 0 or new_pnic[name].bytes_recv > 0:
+                if name in self.pnic_before:
+                    sent_per_sec = (
+                        (new_pnic[name].bytes_sent - self.pnic_before[name].bytes_sent)
+                        / 1024
+                        * 8
+                        / time_diff
+                    )
+                    recv_per_sec = (
+                        (new_pnic[name].bytes_recv - self.pnic_before[name].bytes_recv)
+                        / 1024
+                        * 8
+                        / time_diff
+                    )
+                    diff_nic.append(
+                        {
+                            "name": name,
+                            "sent_per_sec": int(sent_per_sec),
+                            "recv_per_sec": int(recv_per_sec),
+                        }
+                    )
 
-    # per-network interface details: let's sort network interfaces so
-    # that the ones which generated more traffic are shown first
-    nic_names = list(pnic_after.keys())
-    nic_names.sort(key=lambda x: sum(pnic_after[x]), reverse=True)
-    for name in nic_names:
-        stats_before = pnic_before[name]
-        stats_after = pnic_after[name]
-        templ = "%-15s %15s %15s"
-        print(name + " TOTAL" + " PER-SEC")
-        print("bytes-sent: " +
-              bytes2human(stats_after.bytes_sent) + " " +
-              bytes2human(stats_after.bytes_sent -
-                          stats_before.bytes_sent) + '/s',
-              )
-        print("bytes-recv: " +
-              bytes2human(stats_after.bytes_recv) + " " +
-              bytes2human(
-                  stats_after.bytes_recv - stats_before.bytes_recv) + '/s',
-              )
+        self.pnic_before = new_pnic
+        return diff_nic
+
+    def getData(self):
+        update = self.newMeasurement()
+
+        netdata_array = []
+
+        for nic in update:
+            net_data["interface_name"] = nic["name"]
+            net_data["kbps_sent"] = nic["sent_per_sec"]
+            net_data["kbps_recv"] = nic["recv_per_sec"]
+            netdata_array.append(copy.deepcopy(net_data))
+        return netdata_array
 
 
 def main():
-    args = poll(1)
-    refresh_window(*args)
+    netstat = NetMeasurement()
+    while True:
+        os.system("cls")
+        newmes = netstat.newMeasurement()
+        for mes in newmes:
+            print(
+                "Nome scheda di rete: {}\t upload: {} kbps\t download: {} kbps".format(
+                    mes["name"], mes["sent_per_sec"], mes["recv_per_sec"]
+                )
+            )
+        time.sleep(3)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
