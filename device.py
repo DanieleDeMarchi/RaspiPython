@@ -18,6 +18,7 @@ from measurements.disk import HardDrive
 #variabili Globali per semplificare la struttura del codice
 
 isConnected = False
+chiusuraInCorso = False
 connectionThread = threading.Event()
 
 with open("./config.json") as f:
@@ -42,13 +43,14 @@ parametri = config["parameters"]["telemetry_measurements"]
 # Chiusura della connessioe (se attiva) quando CTRL-C
 def signal_handler(sig, frame):
     print("Chiusura in corso")
+    global chiusuraInCorso
+    chiusuraInCorso = True
     connectionThread.set()
     if isConnected:
         print("Disconnessione in corso")
         mqttClient.disconnect()
         print("Disconnesso")
     sys.exit(0)
-
 
 # callback chiamata quando il dispositivo rileva la connessione ad AWS IoT
 def connected(mid, data):
@@ -62,16 +64,17 @@ def connected(mid, data):
 # callback chiamata quando il dispositivo rileva la mancanza di connessione ad AWS IoT
 # avvia il thread di tentativo di riconnessione ogni 30s
 def disconnessoAInternet():
+    if chiusuraInCorso:
+        return
     global isConnected
     isConnected = False 
     print("Errore nella connessione")
     connectionThread.clear()
-    threading.Timer(30, connect, [connectionThread]).start()
+    threading.Timer(30, connect).start()
 
 # funzione per tentare la connessione ad AWS IoT
 # se non è presente la connessione riprova dopo 30s
 def connect():
-    mqttClient.connectAsync(ackCallback=connected)
     try:
         if not connectionThread.is_set():
             mqttClient.connectAsync(ackCallback=connected)
@@ -226,11 +229,6 @@ def updateDeviceFunctionalities(delta):
     shadowState = {
         "state" : {
             "reported": {
-                "cpu_load": "Enabled",
-                "memory_load": "Enabled",
-                "disk_space": "Enabled",
-                "net_io": "Enabled",
-                "battery": "Disabled"
             }
         }       
     }
