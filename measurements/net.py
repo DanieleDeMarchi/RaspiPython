@@ -5,6 +5,14 @@ import psutil
 import copy
 from datetime import datetime, timezone, timedelta
 
+"""[summary]
+
+    Classe per misurazione attività della rete.
+    Per ogni scheda di rete ritorna un dizionario nel seguente formato
+    net_data = {"interface_name": None, "kbps_sent": None, "kbps_recv": None}
+
+"""
+
 net_data = {"interface_name": None, "kbps_sent": None, "kbps_recv": None}
 
 
@@ -21,7 +29,7 @@ class NetMeasurement:
     def newMeasurement(self):
         new_pnic = psutil.net_io_counters(pernic=True)
         timestamp = getPcTime()
-        time_diff = timestamp - self.old_timestamp
+        time_delta = timestamp - self.old_timestamp
         self.old_timestamp = timestamp
 
         nic_names = list(new_pnic.keys())
@@ -33,13 +41,13 @@ class NetMeasurement:
                         (new_pnic[name].bytes_sent - self.pnic_before[name].bytes_sent)
                         / 1024
                         * 8
-                        / time_diff
+                        / time_delta
                     )
                     recv_per_sec = (
                         (new_pnic[name].bytes_recv - self.pnic_before[name].bytes_recv)
                         / 1024
                         * 8
-                        / time_diff
+                        / time_delta
                     )
                     diff_nic.append(
                         {
@@ -67,8 +75,9 @@ class NetMeasurement:
 
 def main():
     netstat = NetMeasurement()
+    print(getPcTime())
     while True:
-        os.system("cls")
+        #os.system("cls")
         newmes = netstat.newMeasurement()
         for mes in newmes:
             print(

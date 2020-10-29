@@ -2,6 +2,11 @@ import time
 import os
 import psutil
 
+"""[summary]
+
+    Classe per misurazione carico cpu, memoria fisica e virtuale
+
+"""
 class CpuMemoryLoad:
     def __init__(self):
         self.coreCount = psutil.cpu_count()

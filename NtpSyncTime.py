@@ -2,7 +2,10 @@ import ntplib
 from datetime import datetime, timezone, timedelta
 import time
 
-
+"""[summary]
+    Classe realizzata al fine di ottenere un oggetto in grado di sincronizzarsi con un server NTP.
+    Ritorna il tempo in formato Iso o Unix timestamp    
+"""
 class NtpSyncTime:
     def __init__(self, ntpServer="pool.ntp.org"):
         self.ntpServer = ntpServer

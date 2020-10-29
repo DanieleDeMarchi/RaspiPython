@@ -14,6 +14,7 @@ from NtpSyncTime import NtpSyncTime
 from measurements.net import NetMeasurement
 from measurements.cpuMemoryLoad import CpuMemoryLoad
 from measurements.disk import HardDrive
+from measurements.Battery import Battery
 
 #variabili Globali per semplificare la struttura del codice
 
@@ -52,6 +53,10 @@ def signal_handler(sig, frame):
         print("Disconnesso")
     sys.exit(0)
 
+
+#----------------------------------#
+#  Callback per connessione disconnessione  #
+#----------------------------------#
 # callback chiamata quando il dispositivo rileva la connessione ad AWS IoT
 def connected(mid, data):
     print(mid)
@@ -83,6 +88,11 @@ def connect():
         # call connect() again in 30 seconds
         threading.Timer(30, connect).start()
 
+
+
+#----------------------------------#
+#  Funzioni che ottengono i dati e li pubblicano  #
+#----------------------------------#
 
 def liveData(misurazioniDaEffettuare, tempoAggiornamento=10):
     """Invia una misurazione ad AWS IoT ogni tempoAggiornamento
@@ -131,13 +141,9 @@ def liveData(misurazioniDaEffettuare, tempoAggiornamento=10):
 
 
         data = json.dumps(misurazione)
-        mqttClient.publishAsync("pcTelemetry/{}/liveTelemetry".format(device_id), data, 1, ackCallback=pubackCallback())
+        mqttClient.publishAsync("pcTelemetry/{}/liveTelemetry".format(device_id), data, 1, ackCallback=pubackCallback("Pubblicato update 10s"))
 
         time.sleep(tempoAggiornamento)
-
-# callback chiamata quando viene pubblicato un messaggio (eventualmente nella coda dei essaggi in mancanza di connessione)
-def pubackCallback():
-    print("pubblicato")
 
 
 def detailData(misurazioniDaEffettuare, tempoAggiornamento=1):
@@ -197,15 +203,86 @@ def detailData(misurazioniDaEffettuare, tempoAggiornamento=1):
             data_array["measurement_array"]=measurement_array
             fastdata = json.dumps(data_array)
             measurement_array.clear()
-            mqttClient.publishAsync("pcTelemetry/{}/detailTelemetry".format(device_id), fastdata, 1, ackCallback=sentArray())
+            mqttClient.publishAsync("pcTelemetry/{}/detailTelemetry".format(device_id), fastdata, 1, ackCallback=pubackCallback("Pubblicato detail telemetry"))
             count = 0
 
         time.sleep(tempoAggiornamento)
 
-# callback chiamata quando viene pubblicato un array di misurazioni dalla funzione detailData
-def sentArray():
-    print("pubblicato detailTelemetry")
 
+def slowUpdateData(misurazioniDaEffettuare, tempoAggiornamento=120):
+    """Invio di misurazioni non soggetto di frequenti cambiamenti
+
+
+    Args:
+        misurazioniDaEffettuare (List): Array con le misurazioni da effetuare. 
+                                        Possibili misurazioni "disk_space", "battery"
+        tempoAggiornamento (int, optional): tempo di aggiornamento in secondi per ogni misurazione. Defaults to 120s (2 minuti).
+    """
+    timestamp = NtpSyncTime()
+
+    misurazione = {"device_id" : device_id,
+                    "measurement_type" : [],
+                    "measurement": {
+                        "iso_timestamp": None,
+                        "unix_timestamp": None}
+    }
+
+    while True:
+        misurazione["measurement_type"].clear()
+        misurazione["measurement"] = {
+            "iso_timestamp": timestamp.getIsoTimestamp(),
+            "unix_timestamp": timestamp.getInfluxTimestamp()
+        }
+
+        if(misurazioniDaEffettuare["disk_space"] == "Enabled"):
+            misurazione["measurement_type"].append("disk_space")
+            misurazione["measurement"]["disk_space"] = HardDrive.getHarDriveUsage()
+
+
+        if(misurazioniDaEffettuare["battery"] == "Enabled"):
+            misurazione["measurement_type"].append("battery")
+            misurazione["measurement"]["battery"] = Battery.getStatus()
+
+
+        data = json.dumps(misurazione)
+        mqttClient.publishAsync("pcTelemetry/{}/slowUpdate".format(device_id), data, 1, ackCallback=pubackCallback("Pubblicato slow update"))
+
+        time.sleep(tempoAggiornamento)
+
+
+# callback chiamata quando viene pubblicato un messaggio (eventualmente nella coda dei essaggi in mancanza di connessione)
+def pubackCallback(string):
+    print(string)
+
+
+#----------------------------------#
+#   Callback ricezione messaggio   #
+#----------------------------------#
+
+def infoRequest(client, userdata, message):
+    print("\n--------------\nRecevuto messaggio richiesta info device")
+    print(message.payload)
+    stringaRisposta = "Il dispositivo funziona correttamente\n"
+    stringaRisposta += Battery.getStatusString() + "\n"
+    stringaRisposta += "Hard disks\n"
+    stringaRisposta += HardDrive.getHardDriveUsageString()
+     
+    res = {
+        "responseMessage" : stringaRisposta
+    }
+
+    print("\nRisposta")
+    print(stringaRisposta)
+    print("--------------\n\n")
+
+    data = json.dumps(res)
+
+    mqttClient.publishAsync("pcTelemetry/{}/infoResponse".format(device_id), data, 1, ackCallback=pubackCallback("Pubblicato slow update"))
+
+
+#----------------------------------#
+#  Callback e funzioni per shadow  #
+#----------------------------------#
 
 def shadowInitialize():
     updateDeviceFunctionalities(parametri)
@@ -262,6 +339,8 @@ def shadowUpdateCallback(payload, responseStatus, token):
 def main():
     signal.signal(signal.SIGINT, signal_handler)
 
+    print(device_id)
+
     ########################
     ### #AWS IoT MQTT client setup
     global mqttClient
@@ -297,22 +376,26 @@ def main():
     shadowClient = shadow.createShadowHandlerWithName(thingName, True)
 
     shadowClient.shadowRegisterDeltaCallback(shadowDeltaCallback)
-
-
-
     #############################
 
     connect() #avvia il tentativo di connessione (ASYNC)
 
-    ## Avvia 2 thread: 
+    #iscrizione al topic di richiesta info
+    mqttClient.subscribe("pcTelemetry/{}/infoRequest".format(device_id), 1, infoRequest) 
+
+    ## Avvia 3 thread: 
     #   - uno pubblica una misurazione ogni 10s
     #   - uno pubblica un array di 30 misurazioni. Con una misurazione ogni secondo
+    #   - uno pubblica una misurazione ogni 2 min. Misurazioni possibili: batteria, spazio Disco
     t1 = threading.Thread(target=detailData, args=(parametri, 1))
     t2 = threading.Thread(target=liveData, args=(parametri, 10))
+    t3 = threading.Thread(target=slowUpdateData, args=(parametri, 120))
     t1.setDaemon(True)
     t2.setDaemon(True)
+    t3.setDaemon(True)
     t1.start()
     t2.start()
+    t3.start()
 
     while True:
         time.sleep(1)
